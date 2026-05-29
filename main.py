@@ -2,13 +2,21 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 import io
 import os
 
 # Note: Commenting tensorflow out to avoid crash if not installed
 # You should uncomment these when you're ready to use your real model
 import tensorflow as tf
+import random
+
+# Set Seed agar hasil selalu konsisten seperti saat training
+SEED = 42
+os.environ['PYTHONHASHSEED'] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
 
 app = FastAPI()
 
@@ -22,7 +30,7 @@ app.add_middleware(
 )
 
 # 1. Load Model Keras
-MODEL_PATH = "Model/tomato_disease_fulldata.keras" # Nama file model kamu
+MODEL_PATH = "Model/tomato_mobilenetv2_final.keras" # Nama file model kamu
 model = None
 
 try:
@@ -35,29 +43,34 @@ except Exception as e:
     print(f"Gagal memuat model: {e}")
 
 # 2. Definisikan Kelas / Label (sesuaikan dengan output model ML kamu)
-# Diambil dari Jupyter Notebook (sudah diurutkan dan diterjemahkan)
-RAW_CLASS_NAMES = sorted([
-    "Tomato_Bacterial_spot","Tomato_Early_blight","Tomato_Late_blight",
-    "Tomato_Leaf_Miner","Tomato_Leaf_Mold","Tomato_Mosaic_Virus",
-    "Tomato_Septoria_leaf_spot",
-    "Tomato_Spider_mites_Two_spotted_spider_mite",
-    "Tomato__Target_Spot","Tomato__Tomato_YellowLeaf__Curl_Virus",
-    "Tomato_healthy",
-])
+# Diambil dari Jupyter Notebook (sudah diurutkan dan disesuaikan dengan output training)
+RAW_CLASS_NAMES = [
+    "Bacterial_spot",
+    "Early_blight",
+    "Late_blight",
+    "Leaf_Mold",
+    "Septoria_leaf_spot",
+    "Spider_mites Two-spotted_spider_mite",
+    "Target_Spot",
+    "Tomato_Yellow_Leaf_Curl_Virus",
+    "Tomato_mosaic_virus",
+    "healthy",
+    "powdery_mildew"
+]
 
 # Mapping agar namanya lebih bagus di web
 CLASS_NAMES_MAPPING = {
-    "Tomato_Bacterial_spot": "Bercak Bakteri (Bacterial Spot)",
-    "Tomato_Early_blight": "Hawar Awal (Early Blight)",
-    "Tomato_Late_blight": "Hawar Akhir (Late Blight)",
-    "Tomato_Leaf_Miner": "Pengorok Daun (Leaf Miner)",
-    "Tomato_Leaf_Mold": "Jamur Daun (Leaf Mold)",
-    "Tomato_Mosaic_Virus": "Virus Mosaik (Mosaic Virus)",
-    "Tomato_Septoria_leaf_spot": "Bercak Daun Septoria (Septoria Leaf Spot)",
-    "Tomato_Spider_mites_Two_spotted_spider_mite": "Tungau Laba-laba (Spider Mites)",
-    "Tomato__Target_Spot": "Bercak Target (Target Spot)",
-    "Tomato__Tomato_YellowLeaf__Curl_Virus": "Virus Daun Kuning Keriting (Yellow Leaf Curl Virus)",
-    "Tomato_healthy": "Tanaman Sehat"
+    "Bacterial_spot": "Bercak Bakteri (Bacterial Spot)",
+    "Early_blight": "Hawar Awal (Early Blight)",
+    "Late_blight": "Hawar Akhir (Late Blight)",
+    "Leaf_Mold": "Jamur Daun (Leaf Mold)",
+    "Septoria_leaf_spot": "Bercak Daun Septoria (Septoria Leaf Spot)",
+    "Spider_mites Two-spotted_spider_mite": "Tungau Laba-laba (Spider Mites)",
+    "Target_Spot": "Bercak Target (Target Spot)",
+    "Tomato_Yellow_Leaf_Curl_Virus": "Virus Daun Kuning Keriting (Yellow Leaf Curl Virus)",
+    "Tomato_mosaic_virus": "Virus Mosaik (Mosaic Virus)",
+    "healthy": "Tanaman Sehat",
+    "powdery_mildew": "Embun Tepung (Powdery Mildew)"
 }
 CLASS_NAMES = [CLASS_NAMES_MAPPING[name] for name in RAW_CLASS_NAMES]
 
@@ -77,7 +90,7 @@ def preprocess_image(image_bytes):
         image = image.convert("RGB")
     
     # Sesuaikan ukuran ini (224x224 karena model meminta shape tersebut)
-    image = image.resize((224, 224)) 
+    image = image.resize((224, 224))
     
     # Konversi ke float32 sesuai kode di Jupyter
     img_array = np.array(image, dtype=np.float32)
@@ -120,7 +133,7 @@ async def predict_image(file: UploadFile = File(...)):
         return {
             "disease": {
                 "name": predicted_class,
-                "en": RAW_CLASS_NAMES[predicted_class_idx]
+                "en": RAW_CLASS_NAMES[predicted_class_idx] if predicted_class_idx < len(RAW_CLASS_NAMES) else "Unknown"
             },
             "accuracy": accuracy,
             "severity": severity,

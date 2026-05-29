@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Images and Debug files (Agar gambar test tidak ikut ter-push)
+debug_received_image.jpg
+*.jpg
+*.jpeg
+*.png
+
+# System Files
+.DS_Store
+Thumbs.db
